@@ -4,39 +4,42 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.8
+  sdk: ^3.2.0
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # --- DATABASE (Offline Storage) ---
-  drift: ^2.14.0
-  sqlite3_flutter_libs: ^0.5.0
-  path_provider: ^2.1.1
-  path: ^1.8.3
+  # --- DATABASE ---
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.2
+  path: ^1.9.0
 
-  # --- BACKGROUND SYNC (30-min Update) ---
-  workmanager: ^0.5.2
+  # --- BACKGROUND SYNC ---
+  workmanager:
+    git:
+      url: https://github.com/fluttercommunity/flutter_workmanager.git
+      path: workmanager
+      ref: main
 
   # --- NETWORKING & STATE ---
-  dio: ^5.4.0
-  flutter_riverpod: ^2.4.9
+  dio: ^5.4.1
+  flutter_riverpod: ^2.5.1
 
   # --- EXPORT & UTILS ---
-  share_plus: ^7.2.1
-  json_annotation: ^4.8.1
+  # v12.0.1+ resolves the web package conflict with drift
+  share_plus: ^12.0.1
+  json_annotation: ^4.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-
-  # --- GENERATORS (For Database & JSON) ---
-  drift_dev: ^2.14.0
-  build_runner: ^2.4.8
-  json_serializable: ^6.7.1
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.12
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
