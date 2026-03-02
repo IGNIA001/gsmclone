@@ -1,34 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:gsmclone/core/sync/sync_manager.dart';
-import 'package:gsmclone/features/home/home_screen.dart';
-import 'package:gsmclone/features/news/news_screen.dart';
-import 'package:gsmclone/features/compare/compare_screen.dart';
-// These were unused, but now we will use them below
 import 'package:gsmclone/core/providers/providers.dart';
 import 'package:gsmclone/core/database/database.dart';
+import 'package:gsmclone/features/home/home_screen.dart';
+import 'package:gsmclone/features/compare/compare_screen.dart';
+import 'package:gsmclone/features/compare/compare_detail_screen.dart';
+import 'package:gsmclone/features/news/news_screen.dart';
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    final db = AppDatabase();
+    final sync = SyncManager(db);
+    try {
+      await sync.syncEverything();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 1. Create the database instance
   final db = AppDatabase();
-
-  // 2. Add sample data so the Compare screen isn't empty
   await db.seedDatabase();
 
-  // 3. Start background sync
-  SyncManager.init();
+  await Workmanager().initialize(callbackDispatcher);
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        // This makes the 'unused' import active
-        databaseProvider.overrideWithValue(db),
-      ],
-      child: const GSMCloneApp(),
+  await Workmanager().registerPeriodicTask(
+    "gsm-offline-sync-id",
+    "gsmArenaSyncTask",
+    frequency: const Duration(minutes: 60),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    constraints: Constraints(
+      networkType: NetworkType.connected,
     ),
   );
+
+  runApp(ProviderScope(
+    overrides: [databaseProvider.overrideWithValue(db)],
+    child: const GSMCloneApp(),
+  ));
 }
 
 class GSMCloneApp extends StatelessWidget {
@@ -37,11 +52,17 @@ class GSMCloneApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'GSM Clone',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        useMaterial3: true,
         colorSchemeSeed: Colors.deepPurple,
+        useMaterial3: true,
+        brightness: Brightness.light,
+      ),
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.deepPurple,
+        useMaterial3: true,
+        brightness: Brightness.dark,
       ),
       home: const Dashboard(),
     );
@@ -50,6 +71,7 @@ class GSMCloneApp extends StatelessWidget {
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
+
   @override
   State<Dashboard> createState() => _DashboardState();
 }
@@ -57,27 +79,45 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   int _currentIndex = 0;
 
-  final screens = [
-    const HomeScreen(),
-    const TechNewsScreen(),
-    const CompareDevicesScreen()
+  final List<Widget> _screens = const [
+    HomeScreen(),
+    CompareDevicesScreen(),   // Rankings list + filter sheet
+    CompareDetailScreen(),    // Side-by-side compare with slide-down video
+    TechNewsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // IndexedStack keeps your scroll position when switching tabs
       body: IndexedStack(
         index: _currentIndex,
-        children: screens,
+        children: _screens,
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        onDestinationSelected: (index) =>
+            setState(() => _currentIndex = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.newspaper), label: 'News'),
-          NavigationDestination(icon: Icon(Icons.compare), label: 'Compare'),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.leaderboard_outlined),
+            selectedIcon: Icon(Icons.leaderboard),
+            label: 'Rankings',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.compare_arrows_outlined),
+            selectedIcon: Icon(Icons.compare_arrows),
+            label: 'Compare',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.newspaper_outlined),
+            selectedIcon: Icon(Icons.newspaper),
+            label: 'News',
+          ),
         ],
       ),
     );

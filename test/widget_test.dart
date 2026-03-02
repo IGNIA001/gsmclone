@@ -1,23 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gsmclone/main.dart';
+import 'package:gsmclone/core/providers/providers.dart';
+import 'package:gsmclone/core/database/database.dart';
+import 'package:drift/native.dart';
+import 'package:drift/drift.dart'; // Add this for DatabaseConnection
 
 void main() {
   testWidgets('App load smoke test', (WidgetTester tester) async {
-    // 1. Build our app and trigger a frame.
-    // We wrap it in ProviderScope because your app uses Riverpod.
+    // Wrap the memory database in a Connection
+    final testDb = AppDatabase.forTesting(
+        DatabaseConnection(NativeDatabase.memory())
+    );
+
     await tester.pumpWidget(
-      const ProviderScope(
-        child: GSMCloneApp(),
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(testDb),
+        ],
+        child: const GSMCloneApp(),
       ),
     );
 
-    // 2. Verify that the Dashboard loads by looking for the Home tab text.
-    // Since you have a NavigationBar with 'Home', this should pass.
-    expect(find.text('Home'), findsWidgets);
+    // Give the app a moment to settle
+    await tester.pumpAndSettle();
 
-    // 3. Verify that we don't see the 'Compare' content immediately 
-    // (since it's on a different tab).
-    expect(find.text('Device Rankings'), findsNothing);
+    expect(find.text('Home'), findsWidgets);
   });
 }

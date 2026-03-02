@@ -1,5 +1,5 @@
 name: gsmclone
-description: "A professional mobile device comparison app with offline sync."
+description: "A professional mobile device comparison app."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,27 +10,15 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-
-  # --- DATABASE ---
+  xml: ^6.6.1
   drift: ^2.20.0
   sqlite3_flutter_libs: ^0.5.24
   path_provider: ^2.1.2
   path: ^1.9.0
-
-  # --- BACKGROUND SYNC ---
-  workmanager:
-    git:
-      url: https://github.com/fluttercommunity/flutter_workmanager.git
-      path: workmanager
-      ref: main
-
-  # --- NETWORKING & STATE ---
+  workmanager: ^0.9.0+3
   dio: ^5.4.1
   flutter_riverpod: ^2.5.1
-
-  # --- EXPORT & UTILS ---
-  # v12.0.1+ resolves the web package conflict with drift
-  share_plus: ^12.0.1
+  share_plus: ^10.1.0 # Standard stable version
   json_annotation: ^4.9.0
 
 dev_dependencies:
