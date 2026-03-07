@@ -18,7 +18,7 @@ dependencies:
   workmanager: ^0.9.0+3
   dio: ^5.4.1
   flutter_riverpod: ^2.5.1
-  share_plus: ^10.1.0 # Standard stable version
+  share_plus: ^10.1.0
   json_annotation: ^4.9.0
 
 dev_dependencies:
@@ -28,6 +28,16 @@ dev_dependencies:
   drift_dev: ^2.20.0
   build_runner: ^2.4.12
   json_serializable: ^6.8.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

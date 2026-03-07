@@ -25,24 +25,24 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(DatabaseConnection connection) : super(connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
-      if (from < 3) {
-        await m.deleteTable('devices');
-        await m.createTable(devices);
+      if (from < 2) {
         await m.addColumn(devices, devices.cameraScore);
         await m.addColumn(devices, devices.softwareScore);
         await m.addColumn(devices, devices.price);
         await m.addColumn(devices, devices.imageUrl);
         await m.addColumn(devices, devices.gpuScore);
       }
+      if (from < 4) {
+        await m.deleteTable('devices');
+        await m.createTable(devices);
+      }
     },
   );
-
-  // ── Queries ──────────────────────────────────────────────────────────────
 
   Future<String> getFavoritesAsText() async {
     final list = await (select(devices)
@@ -75,7 +75,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> upsertDevice(DevicesCompanion entity) async {
-    await into(devices).insertOnConflictUpdate(entity);
+    await into(devices).insert(
+      entity,
+      onConflict: DoUpdate(
+            (old) => entity,
+        target: [devices.name],
+      ),
+    );
   }
 
   Future toggleFavorite(int id, bool currentStatus) {
@@ -83,144 +89,176 @@ class AppDatabase extends _$AppDatabase {
         .write(DevicesCompanion(isFavorite: Value(!currentStatus)));
   }
 
-  Stream<List<Device>> watchAllDevices() => (select(devices)
-    ..orderBy([(t) => OrderingTerm.desc(t.cpuScore)]))
-      .watch();
-
-  // ── Seed ─────────────────────────────────────────────────────────────────
+  Stream<List<Device>> watchAllDevices() =>
+      (select(devices)
+        ..orderBy([(t) => OrderingTerm.desc(t.cpuScore)]))
+          .watch();
 
   Future<void> seedDatabase() async {
-    final count = await select(devices).get();
-    if (count.length >= 10) return;
+    final results = await select(devices).get();
+    if (results.length >= 10) return;
 
-    final seedData = [
-      // ── Samsung ──────────────────────────────────────────────────────────
-      _d('Samsung', 'Galaxy S24 Ultra',
-          cpu: 95, gpu: 93, cam: 98, soft: 80, price: 134999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s24-ultra-5g.jpg'),
-      _d('Samsung', 'Galaxy S24+',
-          cpu: 93, gpu: 91, cam: 90, soft: 80, price: 99999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s24-plus-5g.jpg'),
-      _d('Samsung', 'Galaxy S24',
-          cpu: 91, gpu: 89, cam: 87, soft: 80, price: 79999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s24-5g.jpg'),
-      _d('Samsung', 'Galaxy A55 5G',
-          cpu: 72, gpu: 68, cam: 78, soft: 82, price: 38999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a55.jpg'),
-      _d('Samsung', 'Galaxy A35 5G',
-          cpu: 68, gpu: 64, cam: 74, soft: 80, price: 26999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a35.jpg'),
-      _d('Samsung', 'Galaxy M55 5G',
-          cpu: 74, gpu: 70, cam: 76, soft: 78, price: 29999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-m55.jpg'),
-
-      // ── Apple ─────────────────────────────────────────────────────────────
-      _d('Apple', 'iPhone 16 Pro Max',
-          cpu: 99, gpu: 98, cam: 97, soft: 95, price: 159900,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16-pro-max.jpg'),
-      _d('Apple', 'iPhone 16 Pro',
-          cpu: 98, gpu: 97, cam: 96, soft: 94, price: 134900,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16-pro.jpg'),
-      _d('Apple', 'iPhone 16',
-          cpu: 96, gpu: 94, cam: 90, soft: 93, price: 89900,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16.jpg'),
-      _d('Apple', 'iPhone 15',
-          cpu: 92, gpu: 90, cam: 88, soft: 92, price: 69900,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-15.jpg'),
-      _d('Apple', 'iPhone 14',
-          cpu: 88, gpu: 86, cam: 84, soft: 91, price: 56900,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-14.jpg'),
-
-      // ── OnePlus ───────────────────────────────────────────────────────────
-      _d('OnePlus', '13',
-          cpu: 94, gpu: 92, cam: 85, soft: 85, price: 69999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-13.jpg'),
-      _d('OnePlus', '12',
-          cpu: 91, gpu: 89, cam: 83, soft: 84, price: 64999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-12.jpg'),
-      _d('OnePlus', 'Nord 4',
-          cpu: 78, gpu: 75, cam: 74, soft: 83, price: 29999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-nord-4.jpg'),
-      _d('OnePlus', 'Nord CE 4',
-          cpu: 72, gpu: 68, cam: 70, soft: 82, price: 24999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-nord-ce4.jpg'),
-
-      // ── Google ────────────────────────────────────────────────────────────
-      _d('Google', 'Pixel 9 Pro XL',
-          cpu: 93, gpu: 88, cam: 99, soft: 97, price: 109999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9-pro-xl.jpg'),
-      _d('Google', 'Pixel 9 Pro',
-          cpu: 92, gpu: 87, cam: 98, soft: 97, price: 99999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9-pro.jpg'),
-      _d('Google', 'Pixel 9',
-          cpu: 90, gpu: 85, cam: 95, soft: 96, price: 79999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9.jpg'),
-      _d('Google', 'Pixel 8a',
-          cpu: 85, gpu: 80, cam: 90, soft: 95, price: 52999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-8a.jpg'),
-
-      // ── Xiaomi ────────────────────────────────────────────────────────────
-      _d('Xiaomi', '14 Ultra',
-          cpu: 95, gpu: 93, cam: 97, soft: 76, price: 99999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14-ultra.jpg'),
-      _d('Xiaomi', '14',
-          cpu: 94, gpu: 91, cam: 92, soft: 75, price: 69999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14.jpg'),
-      _d('Xiaomi', 'Redmi Note 13 Pro+',
-          cpu: 76, gpu: 72, cam: 80, soft: 74, price: 31999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-note-13-pro-plus.jpg'),
-      _d('Xiaomi', 'Redmi Note 13 Pro',
-          cpu: 73, gpu: 69, cam: 77, soft: 73, price: 23999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-note-13-pro.jpg'),
-      _d('Xiaomi', 'Redmi 13C',
-          cpu: 55, gpu: 50, cam: 58, soft: 70, price: 10999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-13c.jpg'),
-
-      // ── Realme ────────────────────────────────────────────────────────────
-      _d('Realme', 'GT 6',
-          cpu: 90, gpu: 87, cam: 82, soft: 75, price: 47999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-gt-6.jpg'),
-      _d('Realme', 'Narzo 70 Pro',
-          cpu: 70, gpu: 66, cam: 72, soft: 73, price: 19999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-narzo-70-pro.jpg'),
-      _d('Realme', 'C67',
-          cpu: 58, gpu: 54, cam: 62, soft: 71, price: 13999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-c67.jpg'),
-
-      // ── iQOO ──────────────────────────────────────────────────────────────
-      _d('iQOO', '12',
-          cpu: 95, gpu: 94, cam: 84, soft: 77, price: 52999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-12.jpg'),
-      _d('iQOO', 'Neo 9 Pro',
-          cpu: 88, gpu: 85, cam: 80, soft: 76, price: 36999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-neo9-pro.jpg'),
-      _d('iQOO', 'Z9',
-          cpu: 75, gpu: 71, cam: 73, soft: 75, price: 22999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-z9.jpg'),
-
-      // ── Nothing ───────────────────────────────────────────────────────────
-      _d('Nothing', 'Phone (2a)',
-          cpu: 74, gpu: 70, cam: 75, soft: 88, price: 23999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/nothing-phone-2a.jpg'),
-      _d('Nothing', 'Phone (2)',
-          cpu: 82, gpu: 78, cam: 78, soft: 90, price: 44999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/nothing-phone-2.jpg'),
-
-      // ── Motorola ──────────────────────────────────────────────────────────
-      _d('Motorola', 'Edge 50 Pro',
-          cpu: 80, gpu: 77, cam: 82, soft: 92, price: 31999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-edge-50-pro.jpg'),
-      _d('Motorola', 'G84',
-          cpu: 68, gpu: 64, cam: 68, soft: 90, price: 17999,
-          img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-moto-g84.jpg'),
-    ];
-
-    for (final entry in seedData) {
-      await upsertDevice(entry);
+    for (final d in _seed2025()) {
+      await upsertDevice(d);
     }
   }
 
-  /// Helper to build a DevicesCompanion cleanly
+  List<DevicesCompanion> _seed2025() => [
+    _d('Samsung', 'Galaxy S25 Ultra',
+        cpu: 97, gpu: 96, cam: 99, soft: 82, price: 134999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s25-ultra.jpg'),
+    _d('Samsung', 'Galaxy S25+',
+        cpu: 95, gpu: 93, cam: 92, soft: 82, price: 99999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s25-plus.jpg'),
+    _d('Samsung', 'Galaxy S25',
+        cpu: 94, gpu: 91, cam: 89, soft: 82, price: 79999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s25.jpg'),
+    _d('Samsung', 'Galaxy S25 Edge',
+        cpu: 96, gpu: 94, cam: 91, soft: 82, price: 109999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-s25-edge.jpg'),
+    _d('Samsung', 'Galaxy A56 5G',
+        cpu: 74, gpu: 70, cam: 80, soft: 83, price: 39999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a55.jpg'),
+    _d('Samsung', 'Galaxy A36 5G',
+        cpu: 70, gpu: 66, cam: 76, soft: 82, price: 27999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-a35.jpg'),
+    _d('Samsung', 'Galaxy M56 5G',
+        cpu: 76, gpu: 72, cam: 78, soft: 80, price: 31999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-m55.jpg'),
+    _d('Samsung', 'Galaxy Z Fold 7',
+        cpu: 98, gpu: 96, cam: 93, soft: 83, price: 189999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-z-fold7.jpg'),
+    _d('Samsung', 'Galaxy Z Flip 7',
+        cpu: 96, gpu: 93, cam: 85, soft: 83, price: 109999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-z-flip7.jpg'),
+    _d('Apple', 'iPhone 17 Pro Max',
+        cpu: 99, gpu: 99, cam: 98, soft: 97, price: 169900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-17-pro-max.jpg'),
+    _d('Apple', 'iPhone 17 Pro',
+        cpu: 99, gpu: 98, cam: 97, soft: 97, price: 144900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-17-pro.jpg'),
+    _d('Apple', 'iPhone 17',
+        cpu: 97, gpu: 95, cam: 92, soft: 96, price: 89900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-17.jpg'),
+    _d('Apple', 'iPhone 17e',
+        cpu: 91, gpu: 88, cam: 85, soft: 95, price: 59900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16.jpg'),
+    _d('Apple', 'iPhone 16 Pro Max',
+        cpu: 96, gpu: 95, cam: 96, soft: 95, price: 134900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16-pro-max.jpg'),
+    _d('Apple', 'iPhone 16 Pro',
+        cpu: 95, gpu: 94, cam: 95, soft: 94, price: 114900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16-pro.jpg'),
+    _d('Apple', 'iPhone 16',
+        cpu: 93, gpu: 91, cam: 88, soft: 93, price: 74900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-16.jpg'),
+    _d('Apple', 'iPhone 15',
+        cpu: 89, gpu: 87, cam: 86, soft: 92, price: 59900,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-15.jpg'),
+    _d('OnePlus', '13T',
+        cpu: 97, gpu: 95, cam: 87, soft: 86, price: 64999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-13.jpg'),
+    _d('OnePlus', '13',
+        cpu: 95, gpu: 93, cam: 86, soft: 86, price: 69999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-13.jpg'),
+    _d('OnePlus', 'Nord 5',
+        cpu: 80, gpu: 77, cam: 76, soft: 85, price: 32999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-nord-4.jpg'),
+    _d('OnePlus', 'Nord CE 4 Lite',
+        cpu: 68, gpu: 64, cam: 70, soft: 83, price: 19999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/oneplus-nord-ce4.jpg'),
+    _d('Google', 'Pixel 9 Pro XL',
+        cpu: 94, gpu: 89, cam: 99, soft: 98, price: 109999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9-pro-xl.jpg'),
+    _d('Google', 'Pixel 9 Pro',
+        cpu: 93, gpu: 88, cam: 98, soft: 98, price: 99999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9-pro.jpg'),
+    _d('Google', 'Pixel 9',
+        cpu: 91, gpu: 86, cam: 96, soft: 97, price: 79999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-9.jpg'),
+    _d('Google', 'Pixel 9a',
+        cpu: 87, gpu: 82, cam: 92, soft: 97, price: 52999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/google-pixel-8a.jpg'),
+    _d('Xiaomi', '15 Ultra',
+        cpu: 97, gpu: 96, cam: 99, soft: 77, price: 109999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14-ultra.jpg'),
+    _d('Xiaomi', '15 Pro',
+        cpu: 96, gpu: 94, cam: 95, soft: 77, price: 84999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14-ultra.jpg'),
+    _d('Xiaomi', '15',
+        cpu: 95, gpu: 92, cam: 93, soft: 76, price: 69999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14.jpg'),
+    _d('Xiaomi', 'Redmi Note 14 Pro+',
+        cpu: 78, gpu: 74, cam: 82, soft: 75, price: 33999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-note-13-pro-plus.jpg'),
+    _d('Xiaomi', 'Redmi Note 14 Pro',
+        cpu: 75, gpu: 71, cam: 79, soft: 74, price: 25999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-note-13-pro.jpg'),
+    _d('Xiaomi', 'Redmi 14C',
+        cpu: 57, gpu: 52, cam: 60, soft: 71, price: 11999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-13c.jpg'),
+    _d('Xiaomi', 'POCO X7 Pro',
+        cpu: 90, gpu: 88, cam: 82, soft: 74, price: 29999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14.jpg'),
+    _d('Motorola', 'Signature',
+        cpu: 97, gpu: 95, cam: 90, soft: 93, price: 89999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-edge-50-ultra.jpg'),
+    _d('Motorola', 'Edge 60 Pro',
+        cpu: 86, gpu: 83, cam: 88, soft: 93, price: 44999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-edge-50-pro.jpg'),
+    _d('Motorola', 'Edge 60 Fusion',
+        cpu: 79, gpu: 75, cam: 82, soft: 92, price: 29999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-edge-50-pro.jpg'),
+    _d('Motorola', 'G85 5G',
+        cpu: 70, gpu: 66, cam: 70, soft: 91, price: 19999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-moto-g84.jpg'),
+    _d('Motorola', 'G45 5G',
+        cpu: 60, gpu: 56, cam: 62, soft: 90, price: 13999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/motorola-moto-g84.jpg'),
+    _d('Realme', 'GT 7 Pro',
+        cpu: 97, gpu: 95, cam: 87, soft: 77, price: 54999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-gt-6.jpg'),
+    _d('Realme', 'GT 7',
+        cpu: 91, gpu: 88, cam: 83, soft: 76, price: 39999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-gt-6.jpg'),
+    _d('Realme', 'Narzo 80 Pro',
+        cpu: 72, gpu: 68, cam: 74, soft: 74, price: 21999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-narzo-70-pro.jpg'),
+    _d('iQOO', '13',
+        cpu: 97, gpu: 96, cam: 86, soft: 78, price: 59999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-12.jpg'),
+    _d('iQOO', 'Neo 10 Pro',
+        cpu: 90, gpu: 88, cam: 82, soft: 78, price: 38999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-neo9-pro.jpg'),
+    _d('iQOO', 'Z9 Turbo+',
+        cpu: 88, gpu: 85, cam: 76, soft: 76, price: 27999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-z9.jpg'),
+    _d('iQOO', 'Z9x',
+        cpu: 70, gpu: 66, cam: 68, soft: 75, price: 17999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/vivo-iqoo-z9.jpg'),
+    _d('Nothing', 'Phone (3)',
+        cpu: 84, gpu: 80, cam: 80, soft: 92, price: 49999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/nothing-phone-2.jpg'),
+    _d('Nothing', 'Phone (2a) Plus',
+        cpu: 76, gpu: 72, cam: 77, soft: 90, price: 27999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/nothing-phone-2a.jpg'),
+    _d('OPPO', 'Find X8 Pro',
+        cpu: 97, gpu: 95, cam: 96, soft: 78, price: 99999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14-ultra.jpg'),
+    _d('Vivo', 'X200 Pro',
+        cpu: 97, gpu: 95, cam: 97, soft: 79, price: 94999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-14-ultra.jpg'),
+    _d('Infinix', 'Note 40 Pro+',
+        cpu: 65, gpu: 61, cam: 68, soft: 72, price: 16999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-c67.jpg'),
+    _d('Tecno', 'Pova 6 Pro 5G',
+        cpu: 62, gpu: 58, cam: 65, soft: 70, price: 14999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/realme-c67.jpg'),
+    _d('Lava', 'Blaze Curve 5G',
+        cpu: 58, gpu: 54, cam: 60, soft: 70, price: 12999,
+        img: 'https://fdn2.gsmarena.com/vv/bigpic/xiaomi-redmi-13c.jpg'),
+  ];
+
   DevicesCompanion _d(
       String brand,
       String name, {

@@ -6,10 +6,9 @@ import 'package:gsmclone/core/providers/providers.dart';
 import 'package:gsmclone/core/database/database.dart';
 import 'package:gsmclone/features/home/home_screen.dart';
 import 'package:gsmclone/features/compare/compare_screen.dart';
-import 'package:gsmclone/features/compare/compare_detail_screen.dart';
 import 'package:gsmclone/features/news/news_screen.dart';
 
-@pragma('vm:entry-point')
+@pragma("vm:entry-point")
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     final db = AppDatabase();
@@ -27,33 +26,30 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = AppDatabase();
   await db.seedDatabase();
-
   await Workmanager().initialize(callbackDispatcher);
-
   await Workmanager().registerPeriodicTask(
     "gsm-offline-sync-id",
     "gsmArenaSyncTask",
     frequency: const Duration(minutes: 60),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-    ),
+    constraints: Constraints(networkType: NetworkType.connected),
   );
-
   runApp(ProviderScope(
     overrides: [databaseProvider.overrideWithValue(db)],
     child: const GSMCloneApp(),
   ));
 }
 
-class GSMCloneApp extends StatelessWidget {
+class GSMCloneApp extends ConsumerWidget {
   const GSMCloneApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
-      title: 'GSM Clone',
+      title: "GSM Clone",
       debugShowCheckedModeBanner: false,
+      themeMode: themeMode,
       theme: ThemeData(
         colorSchemeSeed: Colors.deepPurple,
         useMaterial3: true,
@@ -71,7 +67,6 @@ class GSMCloneApp extends StatelessWidget {
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
-
   @override
   State<Dashboard> createState() => _DashboardState();
 }
@@ -79,44 +74,34 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    CompareDevicesScreen(),   // Rankings list + filter sheet
-    CompareDetailScreen(),    // Side-by-side compare with slide-down video
-    TechNewsScreen(),
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const CompareDevicesScreen(),
+    const TechNewsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) =>
-            setState(() => _currentIndex = index),
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.leaderboard_outlined),
-            selectedIcon: Icon(Icons.leaderboard),
-            label: 'Rankings',
+            label: "Home",
           ),
           NavigationDestination(
             icon: Icon(Icons.compare_arrows_outlined),
             selectedIcon: Icon(Icons.compare_arrows),
-            label: 'Compare',
+            label: "Compare",
           ),
           NavigationDestination(
             icon: Icon(Icons.newspaper_outlined),
             selectedIcon: Icon(Icons.newspaper),
-            label: 'News',
+            label: "News",
           ),
         ],
       ),
